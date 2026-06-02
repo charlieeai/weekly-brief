@@ -47,43 +47,70 @@ For each mover, review the raw headlines from the JSON.
 Write 2-3 concise bullet points per mover. If no fundamental news exists, state:
 "No material fundamental news identified in the past 7 days."
 
-### Step 5: Format the email exactly as follows
+### Step 5: Format the email as HTML
 
 Subject: 📊 Weekly Morning Brief — [DATE in "Month DD, YYYY" format]
 
-Body (plain text):
+Body must be **HTML** (not plain text). Use this template structure:
 
+```html
+<div style="font-family: Arial, Helvetica, sans-serif; color: #1a1a1a; max-width: 720px;">
+
+  <h2 style="margin: 0 0 4px 0; font-size: 18px;">📊 Weekly Morning Brief — [DATE]</h2>
+  <p style="margin: 0 0 20px 0; color: #666; font-size: 13px;">Omaha Inversiones — Equity Portfolio</p>
+
+  <table style="border-collapse: collapse; width: 100%; font-size: 13px; margin-bottom: 24px;">
+    <thead>
+      <tr style="background: #f5f5f5; text-align: left;">
+        <th style="padding: 8px 12px; border-bottom: 2px solid #ddd;">Ticker</th>
+        <th style="padding: 8px 12px; border-bottom: 2px solid #ddd;">Company</th>
+        <th style="padding: 8px 12px; border-bottom: 2px solid #ddd; text-align: right;">1W Chg</th>
+        <th style="padding: 8px 12px; border-bottom: 2px solid #ddd; text-align: right;">1M Chg</th>
+      </tr>
+    </thead>
+    <tbody>
+      <!-- One row per ticker, sorted by sector then ticker -->
+      <tr>
+        <td style="padding: 6px 12px; border-bottom: 1px solid #eee; font-weight: bold;">UHR</td>
+        <td style="padding: 6px 12px; border-bottom: 1px solid #eee;">Swatch Group</td>
+        <td style="padding: 6px 12px; border-bottom: 1px solid #eee; text-align: right; color: #16a34a;">+X.X%</td>
+        <td style="padding: 6px 12px; border-bottom: 1px solid #eee; text-align: right; color: #dc2626;">-X.X%</td>
+      </tr>
+      <!-- ... repeat for all 16 tickers ... -->
+    </tbody>
+  </table>
+
+  <!-- Only if there are movers (>5% change) -->
+  <h3 style="font-size: 15px; margin: 24px 0 12px 0; border-top: 1px solid #ddd; padding-top: 16px;">Movers commentary (+/- 5%)</h3>
+
+  <p style="margin: 0 0 4px 0; font-size: 14px; font-weight: bold;">[TICKER] — [Company Name]</p>
+  <p style="margin: 0 0 4px 0; font-size: 13px; color: #666;">1W: X.X% | 1M: X.X%</p>
+  <ul style="margin: 4px 0 16px 0; padding-left: 20px; font-size: 13px;">
+    <li>[Fundamental explanation 1]</li>
+    <li>[Fundamental explanation 2, if relevant]</li>
+  </ul>
+
+  <!-- If tickers had errors -->
+  <p style="font-size: 12px; color: #999; margin-top: 20px;">Data issues: [list or "None"]</p>
+
+</div>
 ```
-📊 WEEKLY MORNING BRIEF — [DATE]
-Omaha Inversiones — Equity Portfolio
 
-Ticker | Company                    | 1W Chg  | 1M Chg
--------|----------------------------|---------|--------
-UHR    | Swatch Group               | +X.X%   | +X.X%
-...    | ...                        | ...     | ...
+**Color rules for % changes:**
+- Positive changes: use `color: #16a34a` (green)
+- Negative changes: use `color: #dc2626` (red)
+- Zero or N/A: use `color: #666` (gray)
 
----
-
-MOVERS COMMENTARY (+/- 5%)
-
-[TICKER] — [Company Name]
-• 1W Change: X.X% | 1M Change: X.X%
-• [Fundamental explanation 1]
-• [Fundamental explanation 2, if relevant]
-
----
-
-Tickers with data issues: [list any errors, or "None"]
-```
+**Rows with >5% change** (movers): add `background: #fffbeb` (light yellow) to highlight them in the table.
 
 No executive summary. No footer. No closing remarks. No sign-off.
 Tone: professional, institutional, English.
 
-### Step 6: Send via Gmail
+### Step 6: Send via Gmail as HTML
 - To: dante@omaha.pe
 - From: charlieai@omaha.pe
 - Subject: 📊 Weekly Morning Brief — [DATE]
-- Body: the formatted brief above
+- Body: the HTML formatted brief above. Send as **HTML email**, not plain text.
 - Send immediately. Do not ask for confirmation.
 
 ## Critical Notes
