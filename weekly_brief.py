@@ -12,6 +12,7 @@ Usage:
 """
 
 import json
+import math
 import sys
 import argparse
 import urllib.request
@@ -27,7 +28,7 @@ import yfinance as yf
 # Keys = display ticker, values = yfinance symbol + metadata.
 # ──────────────────────────────────────────────────────────────
 PORTFOLIO = {
-    "UHR":   {"yf": "UHR.SW",  "name": "Swatch Group",                "sector": "Consumer Discretionary", "ccy": "CHF"},
+    "UHR":   {"yf": "UHR.SW",  "yf_alt": "SWGAY",  "name": "Swatch Group",                "sector": "Consumer Discretionary", "ccy": "CHF"},
     "AML":   {"yf": "AML.L",   "name": "Aston Martin Lagonda",        "sector": "Consumer Discretionary", "ccy": "GBP"},
     "NKE":   {"yf": "NKE",     "name": "Nike",                        "sector": "Consumer Discretionary", "ccy": "USD"},
     "LULU":  {"yf": "LULU",    "name": "Lululemon Athletica",         "sector": "Consumer Discretionary", "ccy": "USD"},
@@ -35,7 +36,7 @@ PORTFOLIO = {
     "LMND":  {"yf": "LMND",    "name": "Lemonade",                    "sector": "Financials",             "ccy": "USD"},
     "AUNA":  {"yf": "AUNA",    "name": "Auna S.A.",                   "sector": "Health Care",            "ccy": "USD"},
     "JACK":  {"yf": "JACK",    "name": "Jack in the Box",             "sector": "Consumer Discretionary", "ccy": "USD"},
-    "AVIO":  {"yf": "AVIO.MI", "name": "Avio S.p.A.",                 "sector": "Industrials",            "ccy": "EUR"},
+    "AVIO":  {"yf": "AVIO.MI", "yf_alt": "AVVSY",  "name": "Avio S.p.A.",                 "sector": "Industrials",            "ccy": "EUR"},
     "HCC":   {"yf": "HCC",     "name": "Warrior Met Coal",            "sector": "Energy",                 "ccy": "USD"},
     "AMR":   {"yf": "AMR",     "name": "Alpha Metallurgical Resources","sector": "Energy",                "ccy": "USD"},
     "CNR":   {"yf": "CNR",     "name": "Core Natural Resources",      "sector": "Energy",                 "ccy": "USD"},
@@ -79,7 +80,16 @@ def fetch_prices(debug=False):
         try:
             log(f"Fetching {ticker} ({info['yf']})...", debug)
             stock = yf.Ticker(info["yf"])
+
+            # Try with start date first, fallback to period for international tickers
             hist = stock.history(start=start)
+            if hist.empty:
+                log(f"  Retrying {ticker} with period='2mo'...", debug)
+                hist = stock.history(period="2mo")
+            if hist.empty and info.get("yf_alt"):
+                log(f"  Retrying {ticker} with alt ticker {info['yf_alt']}...", debug)
+                stock = yf.Ticker(info["yf_alt"])
+                hist = stock.history(period="2mo")
 
             if hist.empty:
                 results[ticker] = {
@@ -92,6 +102,24 @@ def fetch_prices(debug=False):
 
             current_price = float(hist["Close"].iloc[-1])
             current_date = hist.index[-1].strftime("%Y-%m-%d")
+            price_delayed = False
+
+            # If current close is NaN (common for European markets intraday),
+            # walk back to the last valid close
+            if math.isnan(current_price):
+                valid_closes = hist["Close"].dropna()
+                if valid_closes.empty:
+                    results[ticker] = {
+                        "name": info["name"],
+                        "sector": info["sector"],
+                        "ccy": info["ccy"],
+                        "error": "All close prices are NaN",
+                    }
+                    continue
+                current_price = float(valid_closes.iloc[-1])
+                current_date = valid_closes.index[-1].strftime("%Y-%m-%d")
+                price_delayed = True
+                log(f"  {ticker}: using previous close from {current_date} (today's was NaN)", debug)
 
             target_7d = today - timedelta(days=7)
             price_7d, date_7d = closest_price(hist, target_7d)
@@ -111,6 +139,7 @@ def fetch_prices(debug=False):
                 "ccy": info["ccy"],
                 "current_price": round(current_price, 2),
                 "current_date": current_date,
+                "price_delayed": price_delayed,
                 "price_7d": round(price_7d, 2) if price_7d else None,
                 "date_7d": date_7d,
                 "price_30d": round(price_30d, 2) if price_30d else None,
@@ -220,6 +249,7 @@ def main():
         "prices": prices,
         "news": news,
         "movers": [k for k, v in prices.items() if v.get("is_mover")],
+        "delayed_prices": [k for k, v in prices.items() if v.get("price_delayed")],
         "errors": [k for k, v in prices.items() if "error" in v],
     }
 
