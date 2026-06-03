@@ -21,7 +21,7 @@ from email.mime.text import MIMEText
 from datetime import datetime
 
 SENDER = "charlieai@omaha.pe"
-DEFAULT_TO = "dante@omaha.pe"
+DEFAULT_TO = "christian@omaha.pe"
 SUBJECT_TEMPLATE = "📊 Weekly Morning Brief — {date}"
 HTML_FILE = "/tmp/brief_email.html"
 
