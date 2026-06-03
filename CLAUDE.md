@@ -1,73 +1,76 @@
 # Weekly Morning Brief — Omaha Inversiones
 
 ## Purpose
-This repo powers a weekly automated equity research brief for 16 portfolio positions.
-The brief is created as a Gmail draft every Monday morning.
+Automated weekly equity research brief for 16 portfolio positions.
+Sent every Monday at 6:30 AM PET via Gmail SMTP.
 
 ## Architecture
-- `weekly_brief.py` → Python script that fetches prices (yfinance) and news headlines (Google News RSS)
-- Claude Code Routine → runs the script, applies fundamental news judgment, formats the brief, creates Gmail draft
+- `weekly_brief.py` → prices (yfinance) + news headlines (Google News RSS) → JSON
+- Claude → reads JSON, filters/verifies news, formats HTML email, writes to file
+- `send_email.py` → reads HTML file, sends via Gmail SMTP
 
 ## Workflow
 
-### Step 1: Install dependencies and run the script
+### Step 1: Run the data collection script
 ```bash
 pip install -r requirements.txt --break-system-packages
 python weekly_brief.py --debug 2>/tmp/brief_log.txt | tee /tmp/brief_data.json
 ```
 
 ### Step 2: Parse the JSON output from /tmp/brief_data.json
+The JSON now contains:
+- `prices`: each ticker with current_price, chg_7d_pct, chg_30d_pct, chg_6m_pct
+- `news_1w`: last-7-day headlines per ticker (for all tickers)
+- `news_6m`: broader headlines per ticker (for all tickers)
+- `delayed_prices`: tickers where price is from previous close
+- `movers`: tickers with >5% move in 1W or 1M
 
 ### Step 3: Build the price table
-Columns: `Ticker | Company | Today | 1W Chg | 1M Chg`
-- **"Today" column**: shows the current price from the JSON, with currency symbol (e.g. $43.73, CHF 192.40, £12.55, €4.32)
-- **Sort by 1W Chg descending** (largest positive first, most negative last)
-- Show % changes with +/- sign and one decimal place
-- If a ticker has an error, show "N/A" in the price columns
+Columns: `Ticker | Company | Today | 1W Chg | 1M Chg | 6M Chg`
+- **"Today"**: current price with currency symbol ($, CHF, £, €)
+- **Sort by 1W Chg descending** (most positive first, most negative last)
+- Show % changes with +/- sign and one decimal
+- Highlight movers (>5% in 1W or 1M) with yellow background row
+- If `price_delayed: true`, add asterisk (*) to price in Today column
 
-### Step 4: News research for movers (>5% change in 1W or 1M)
+### Step 4: News research for EVERY ticker
 
-**4a. Review the raw headlines from the JSON first.**
+**4a. 1W News (last 7 days):**
+- Review headlines from `news_1w` in the JSON
+- Verify accuracy of every fact before including it (cross-check corporate structures, causality)
+- If a headline explains a price driver, include the ROOT CAUSE (e.g. not "coal rallied" but "coal rallied because a major Chinese mine disaster reduced global supply")
+- If no fundamental news found in the last 7 days, write: "No material fundamental news this week."
+- Write 1 bullet (or 2 if genuinely warranted)
 
-**4b. Verify accuracy of every headline before including it.** Cross-check facts:
-- If a headline says "company X is a subsidiary of Y", verify that is CURRENTLY true (not outdated info from a past corporate structure)
-- If a headline describes a price driver, explain the ROOT CAUSE, not just the surface event. Example: don't just say "hard coking coal prices rallied" — explain WHY (e.g. supply disruption from a mine disaster in China reducing global supply)
-- If a headline seems generic or vague, discard it
+**4b. 6M Context (last 6 months):**
+- Review headlines from `news_6m` in the JSON PLUS your own knowledge of recent events
+- Focus on structural/fundamental developments: earnings trends, M&A, management changes, regulatory shifts, capital structure events, sector dynamics
+- There should almost always be something to write here — dig into the broader picture
+- Write 1-3 bullets depending on how much material exists. Group related items.
 
-**4c. If the script's headlines are insufficient for a mover with >5% change, you MUST search harder:**
-- Search for the company name + "news" in the last 7-14 days
-- Search for the industry/commodity + recent events
-- Check if there were earnings releases, M&A announcements, regulatory actions
-- A >5% move almost always has a fundamental explanation — find it
-
-**4d. What to include:**
+**4c. What to include (both sections):**
 - Earnings, revenue, guidance changes
 - M&A activity, divestitures, spin-offs (verify current corporate structure)
 - Regulatory actions, legal rulings
-- Management changes (CEO, CFO, board)
+- Management changes, proxy fights, activist investors
 - Debt issuance, refinancing, capital structure changes
-- Industry-specific material events (mine disasters, drug approvals, permits, supply disruptions)
-- Commodity price movements WITH their root cause
-- Macro factors directly affecting the company (tariffs, sanctions, policy changes)
+- Industry events (mine disasters, drug approvals, permits, supply disruptions)
+- Commodity movements WITH root cause
+- Macro factors directly affecting the company
 
-**4e. What to exclude:**
-- Technical analysis, chart patterns, support/resistance levels
-- Analyst price targets or rating changes (unless with fundamental reasoning)
+**4d. What to exclude (both sections):**
+- Technical analysis, chart patterns
+- Analyst price targets (unless with fundamental reasoning)
 - "Stock is up/down X%" without explanation
 - Momentum, options activity, short interest speculation
-- Listicles ("10 stocks to buy now")
+- Listicles, generic AI-generated summaries
+- News about DIFFERENT companies with similar tickers (e.g. AML = Aston Martin, NOT "AML investigation" about other companies; CNR = Core Natural Resources, NOT Canadian National Railway; JACK = Jack in the Box, NOT Jack Henry or Jack Dorsey)
 
-**4f. Bullet point rules:**
-- Write 1-3 bullet points per mover, as many as there are REAL fundamental items to report
-- Do NOT force a second or third bullet point if there is only one real piece of news
-- Do NOT write filler like "No company-specific fundamental news identified" — if you have one solid bullet, that's enough
-- Each bullet must contain a specific, verifiable fact with its root cause
+**4e. Do NOT force bullets.** If 1W has one real item, write one. If 6M has three, write three. Never write filler.
 
 ### Step 5: Format the email as HTML
 
 Subject: 📊 Weekly Morning Brief — [DATE in "Month DD, YYYY" format]
-
-Body must be **HTML** (not plain text). Use this template structure:
 
 ```html
 <div style="font-family: Arial, Helvetica, sans-serif; color: #1a1a1a; max-width: 720px;">
@@ -75,86 +78,99 @@ Body must be **HTML** (not plain text). Use this template structure:
   <h2 style="margin: 0 0 4px 0; font-size: 18px;">📊 Weekly Morning Brief — [DATE]</h2>
   <p style="margin: 0 0 20px 0; color: #666; font-size: 13px;">Omaha Inversiones — Equity Portfolio</p>
 
-  <table style="border-collapse: collapse; width: 100%; font-size: 13px; margin-bottom: 24px;">
+  <table style="border-collapse: collapse; width: 100%; font-size: 13px; margin-bottom: 8px;">
     <thead>
       <tr style="background: #f5f5f5; text-align: left;">
-        <th style="padding: 8px 12px; border-bottom: 2px solid #ddd;">Ticker</th>
-        <th style="padding: 8px 12px; border-bottom: 2px solid #ddd;">Company</th>
-        <th style="padding: 8px 12px; border-bottom: 2px solid #ddd; text-align: right;">Today</th>
-        <th style="padding: 8px 12px; border-bottom: 2px solid #ddd; text-align: right;">1W Chg</th>
-        <th style="padding: 8px 12px; border-bottom: 2px solid #ddd; text-align: right;">1M Chg</th>
+        <th style="padding: 8px 10px; border-bottom: 2px solid #ddd;">Ticker</th>
+        <th style="padding: 8px 10px; border-bottom: 2px solid #ddd;">Company</th>
+        <th style="padding: 8px 10px; border-bottom: 2px solid #ddd; text-align: right;">Today</th>
+        <th style="padding: 8px 10px; border-bottom: 2px solid #ddd; text-align: right;">1W</th>
+        <th style="padding: 8px 10px; border-bottom: 2px solid #ddd; text-align: right;">1M</th>
+        <th style="padding: 8px 10px; border-bottom: 2px solid #ddd; text-align: right;">6M</th>
       </tr>
     </thead>
     <tbody>
-      <!-- SORTED BY 1W CHG DESCENDING (most positive first) -->
-      <tr style="background: #fffbeb;"><!-- yellow highlight = mover -->
-        <td style="padding: 6px 12px; border-bottom: 1px solid #eee; font-weight: bold;">AVIO</td>
-        <td style="padding: 6px 12px; border-bottom: 1px solid #eee;">Avio S.p.A.</td>
-        <td style="padding: 6px 12px; border-bottom: 1px solid #eee; text-align: right;">€43.07</td>
-        <td style="padding: 6px 12px; border-bottom: 1px solid #eee; text-align: right; color: #16a34a;">+25.1%</td>
-        <td style="padding: 6px 12px; border-bottom: 1px solid #eee; text-align: right; color: #16a34a;">+38.5%</td>
+      <!-- SORTED BY 1W Chg DESCENDING -->
+      <tr style="background: #fffbeb;"><!-- yellow = mover row -->
+        <td style="padding: 6px 10px; border-bottom: 1px solid #eee; font-weight: bold;">HCC</td>
+        <td style="padding: 6px 10px; border-bottom: 1px solid #eee;">Warrior Met Coal</td>
+        <td style="padding: 6px 10px; border-bottom: 1px solid #eee; text-align: right;">$110.28</td>
+        <td style="padding: 6px 10px; border-bottom: 1px solid #eee; text-align: right; color: #16a34a;">+18.5%</td>
+        <td style="padding: 6px 10px; border-bottom: 1px solid #eee; text-align: right; color: #16a34a;">+27.9%</td>
+        <td style="padding: 6px 10px; border-bottom: 1px solid #eee; text-align: right; color: #16a34a;">+45.2%</td>
       </tr>
-      <tr><!-- normal row, not a mover -->
-        <td style="padding: 6px 12px; border-bottom: 1px solid #eee; font-weight: bold;">NKE</td>
-        <td style="padding: 6px 12px; border-bottom: 1px solid #eee;">Nike</td>
-        <td style="padding: 6px 12px; border-bottom: 1px solid #eee; text-align: right;">$43.73</td>
-        <td style="padding: 6px 12px; border-bottom: 1px solid #eee; text-align: right; color: #dc2626;">-2.1%</td>
-        <td style="padding: 6px 12px; border-bottom: 1px solid #eee; text-align: right; color: #16a34a;">+1.5%</td>
-      </tr>
-      <!-- ... repeat for all 16 tickers, sorted by 1W Chg desc ... -->
     </tbody>
   </table>
 
-  <!-- Only for movers with >5% change in 1W or 1M -->
-  <h3 style="font-size: 15px; margin: 24px 0 12px 0; border-top: 1px solid #ddd; padding-top: 16px;">Movers commentary</h3>
+  <!-- Delayed price footnote (only if applicable) -->
+  <p style="font-size: 11px; color: #999; margin: 0 0 20px 0;">* UHR, AVIO: price as of [date] (latest available close)</p>
 
-  <p style="margin: 0 0 4px 0; font-size: 14px; font-weight: bold;">[TICKER] — [Company Name]</p>
-  <p style="margin: 0 0 4px 0; font-size: 13px;">
-    1W: <span style="color: #16a34a;">+X.X%</span> | 1M: <span style="color: #dc2626;">-X.X%</span>
-  </p>
-  <!-- Color each % individually: green if positive, red if negative -->
-  <ul style="margin: 4px 0 16px 0; padding-left: 20px; font-size: 13px;">
-    <li>[Verified fundamental explanation with root cause]</li>
-    <!-- Only add more bullets if there are MORE real fundamental items -->
-  </ul>
+  <!-- COMMENTARY FOR EVERY TICKER (sorted same as table: 1W desc) -->
+  <h3 style="font-size: 15px; margin: 24px 0 16px 0; border-top: 1px solid #ddd; padding-top: 16px;">Portfolio commentary</h3>
 
-  <!-- If tickers had errors -->
+  <!-- Repeat this block for EACH ticker -->
+  <div style="margin-bottom: 20px;">
+    <p style="margin: 0 0 4px 0; font-size: 14px; font-weight: bold;">[TICKER] — [Company Name]</p>
+    <p style="margin: 0 0 8px 0; font-size: 13px;">
+      1W: <span style="color: #16a34a;">+X.X%</span> |
+      1M: <span style="color: #dc2626;">-X.X%</span> |
+      6M: <span style="color: #16a34a;">+X.X%</span>
+    </p>
+
+    <p style="margin: 0 0 2px 0; font-size: 12px; font-weight: bold; color: #444;">Last week</p>
+    <ul style="margin: 2px 0 8px 0; padding-left: 20px; font-size: 13px;">
+      <li>[1W fundamental news with root cause]</li>
+      <!-- OR: <li style="color: #999;">No material fundamental news this week.</li> -->
+    </ul>
+
+    <p style="margin: 0 0 2px 0; font-size: 12px; font-weight: bold; color: #444;">6M context</p>
+    <ul style="margin: 2px 0 0 0; padding-left: 20px; font-size: 13px;">
+      <li>[Structural development or trend over last 6 months]</li>
+      <li>[Additional item if material exists]</li>
+    </ul>
+  </div>
+  <!-- End repeat -->
+
   <p style="font-size: 12px; color: #999; margin-top: 20px;">Data issues: [list or "None"]</p>
-
-  <!-- If any tickers have price_delayed: true in the JSON -->
-  <!-- Add footnote below the table (before movers section) like: -->
-  <!-- <p style="font-size: 11px; color: #999; margin: -16px 0 20px 0;">* UHR, AVIO: price as of [date] (latest available close)</p> -->
 
 </div>
 ```
 
-**Color rules for % changes (apply everywhere: table AND commentary):**
+**Color rules (table AND commentary):**
 - Positive: `color: #16a34a` (green)
 - Negative: `color: #dc2626` (red)
-- Zero or N/A: `color: #666` (gray)
+- Zero/N/A: `color: #666` (gray)
 
-**Mover rows** in the table: add `background: #fffbeb` (light yellow).
+**Mover rows** in table: `background: #fffbeb` (yellow).
 
-**Delayed prices:** If the JSON has `"price_delayed": true` for any ticker, add an asterisk (*) next to the price in the Today column, and include a footnote below the table: `"* [TICKER(s)]: price as of [date] (latest available close)"`. Place this footnote between the table and the movers commentary.
-
-No executive summary. No footer. No closing remarks. No sign-off.
+No executive summary. No footer. No closing. No sign-off.
 Tone: professional, institutional, English.
 
-### Step 6: Create Gmail DRAFT (do NOT send)
-- To: dante@omaha.pe
-- Subject: 📊 Weekly Morning Brief — [DATE]
-- Body: the HTML formatted brief above. Create as **HTML draft**, not plain text.
-- **CREATE DRAFT ONLY. Do NOT send the email.** The user will review and send manually.
+### Step 6: Write the HTML to file
+```bash
+# Claude writes the formatted HTML to this file:
+cat > /tmp/brief_email.html << 'EOF'
+[THE FULL HTML HERE]
+EOF
+```
+
+### Step 7: Send the email via SMTP
+```bash
+python send_email.py
+```
+This reads `/tmp/brief_email.html` and sends via Gmail SMTP using the `GMAIL_APP_PASSWORD` environment variable.
+
+If send_email.py fails, log the error but do NOT retry. The HTML file is preserved for manual review.
 
 ## Critical Notes
-- **TAVHY** = TAV Havalimanlari Holding A.S. (Turkish airport operator). NOT Tabcorp. NOT Tabcorp Holdings.
-- **CNR** = Core Natural Resources. NOT Canadian National Railway. NOT any Canadian company.
-- **AVIO** = Avio S.p.A. (Italian aerospace, Borsa Italiana: AVIO.MI). NOT AVGO.
-- **DGE** = Diageo (London: DGE.L). Prices in GBP pence.
-- **AML** = Aston Martin Lagonda (London: AML.L). Prices in GBP pence.
-- **UHR** = Swatch Group (SIX: UHR.SW). Prices in CHF.
-- **CTT** = CTT Correios de Portugal (Euronext: CTT.LS). Prices in EUR.
-- **AVIO** = Avio S.p.A. (Borsa Italiana: AVIO.MI). Prices in EUR.
-- **JACK** = Jack in the Box. Note: Jack sold Del Taco in 2024. Del Taco is NO LONGER a subsidiary.
-- Do NOT use FMP tools. All data comes from the Python script.
-- If the script fails, check /tmp/brief_log.txt for errors.
+- **TAVHY** = TAV Havalimanlari Holding A.S. (Turkish airports). NOT Tabcorp.
+- **CNR** = Core Natural Resources. NOT Canadian National Railway. Headlines about TSX:CNR are WRONG company.
+- **AML** = Aston Martin Lagonda. NOT "AML investigation" (anti-money laundering). Filter out unrelated AML news.
+- **JACK** = Jack in the Box. Jack sold Del Taco in 2024 — Del Taco is NOT a subsidiary. Jack Henry (JKHY) is a DIFFERENT company. Block/Jack Dorsey is IRRELEVANT.
+- **HCC** = Warrior Met Coal. NOT hepatocellular carcinoma (HCC cancer). Filter out medical HCC news.
+- **AVIO** = Avio S.p.A. (Italian aerospace, AVIO.MI). NOT AVGO.
+- **DGE** = Diageo (DGE.L). Prices in GBP pence.
+- **AML** = Aston Martin (AML.L). Prices in GBP pence.
+- **UHR** = Swatch Group (UHR.SW). Prices in CHF.
+- **CTT** / **AVIO** = Prices in EUR.
+- Do NOT use FMP tools. All data comes from the Python scripts.
