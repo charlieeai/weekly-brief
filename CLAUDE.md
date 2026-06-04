@@ -154,13 +154,13 @@ cat > /tmp/brief_email.html << 'EOF'
 EOF
 ```
 
-### Step 7: Send the email via SMTP
+### Step 7: Send the email via n8n webhook
 ```bash
-python send_email.py
+python send_brief_webhook.py
 ```
-This reads `/tmp/brief_email.html` and sends via Gmail SMTP using the `GMAIL_APP_PASSWORD` environment variable.
+This POSTs the HTML to the n8n webhook, which sends the email via Gmail.
 
-If send_email.py fails, log the error but do NOT retry. The HTML file is preserved for manual review.
+If the webhook fails, log the error. The HTML file is preserved at /tmp/brief_email.html for manual review.
 
 ## Critical Notes
 - **TAVHY** = TAV Havalimanlari Holding A.S. (Turkish airports). NOT Tabcorp.
