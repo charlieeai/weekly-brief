@@ -22,7 +22,7 @@ WEBHOOK_URL = os.environ.get(
     "N8N_WEBHOOK_URL",
     "https://operacionesomaha.app.n8n.cloud/webhook/send-weekly-brief"
 )
-DEFAULT_TO = "christian@omaha.pe"
+DEFAULT_TO = "dante@omaha.pe"
 SUBJECT_TEMPLATE = "📊 Weekly Morning Brief — {date}"
 HTML_FILE = "/tmp/brief_email.html"
 # ────────────────────────────────────────────────────────────
