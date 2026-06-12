@@ -42,6 +42,7 @@ PORTFOLIO = {
     "DGE":   {"yf": "DGE.L",   "name": "Diageo",                      "sector": "Consumer Staples",       "ccy": "GBP"},
     "PAR":   {"yf": "PAR",     "name": "PAR Technology",              "sector": "Technology",             "ccy": "USD"},
     "TAVHY": {"yf": "TAVHY",   "name": "TAV Havalimanlari Holding",   "sector": "Industrials",            "ccy": "USD"},
+    "ONON": {"yf": "ONON",   "name": "On Holding AG",   "sector": "Consumer Cyclical",            "ccy": "USD"},
 }
 
 MOVER_THRESHOLD = 5.0
