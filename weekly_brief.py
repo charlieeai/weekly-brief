@@ -31,7 +31,6 @@ PORTFOLIO = {
     "NKE":   {"yf": "NKE",     "name": "Nike",                        "sector": "Consumer Discretionary", "ccy": "USD"},
     "LULU":  {"yf": "LULU",    "name": "Lululemon Athletica",         "sector": "Consumer Discretionary", "ccy": "USD"},
     "LEN":   {"yf": "LEN",     "name": "Lennar",                      "sector": "Consumer Discretionary", "ccy": "USD"},
-    "LMND":  {"yf": "LMND",    "name": "Lemonade",                    "sector": "Financials",             "ccy": "USD"},
     "AUNA":  {"yf": "AUNA",    "name": "Auna S.A.",                   "sector": "Health Care",            "ccy": "USD"},
     "JACK":  {"yf": "JACK",    "name": "Jack in the Box",             "sector": "Consumer Discretionary", "ccy": "USD"},
     "AVIO":  {"yf": "AVIO.MI", "yf_alt": "AVVSY",  "name": "Avio S.p.A.",                 "sector": "Industrials",            "ccy": "EUR"},
