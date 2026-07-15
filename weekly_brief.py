@@ -45,6 +45,10 @@ PORTFOLIO = {
     "PAR":   {"yf": "PAR",     "name": "PAR Technology",              "sector": "Technology",             "ccy": "USD", "cost": 40.32, "purchase_date": "2021-12-20"},
     "TAVHY": {"yf": "TAVHY",   "name": "TAV Havalimanlari Holding",   "sector": "Industrials",            "ccy": "USD", "cost": 22.80, "purchase_date": "2026-05-28"},
     "ONON": {"yf": "ONON",   "name": "On Holding AG",   "sector": "Consumer Cyclical",            "ccy": "USD", "cost": 37.85, "purchase_date": "2026-06-08"},
+    "ADBE": {"yf": "ADBE",   "name": "Adobe Inc",   "sector": "Technology",            "ccy": "USD", "cost": 229.82, "purchase_date": "2026-07-13"},
+    "INTU": {"yf": "INTU",   "name": "Intuit Inc",   "sector": "Technology",            "ccy": "USD", "cost": 288.01, "purchase_date": "2026-07-13"},
+    "TOST": {"yf": "TOST",   "name": "Toast Inc",   "sector": "Technology",            "ccy": "USD", "cost": 29.97, "purchase_date": "2026-07-14"},
+    "WKL": {"yf": "WKL.AS",   "name": "Wolters Kluwer N.V.",   "sector": "Technology",            "ccy": "EUR", "cost": 61.95, "purchase_date": "2026-07-14"},
 }
 
 MOVER_THRESHOLD = 5.0
