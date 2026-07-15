@@ -51,6 +51,22 @@ PORTFOLIO = {
     "WKL": {"yf": "WKL.AS",   "name": "Wolters Kluwer N.V.",   "sector": "Technology",            "ccy": "EUR", "cost": 61.95, "purchase_date": "2026-07-14"},
 }
 
+# ──────────────────────────────────────────────────────────────
+# WATCHLIST — price-only tracking (no cost, no news, no movers)
+# Mag 7 + SpaceX + Micron
+# ──────────────────────────────────────────────────────────────
+WATCHLIST = {
+    "NVDA":  {"yf": "NVDA",  "name": "NVIDIA",                     "sector": "Technology",             "ccy": "USD"},
+    "AAPL":  {"yf": "AAPL",  "name": "Apple",                      "sector": "Technology",             "ccy": "USD"},
+    "GOOG":  {"yf": "GOOG",  "name": "Alphabet",                   "sector": "Technology",             "ccy": "USD"},
+    "MSFT":  {"yf": "MSFT",  "name": "Microsoft",                  "sector": "Technology",             "ccy": "USD"},
+    "AMZN":  {"yf": "AMZN",  "name": "Amazon",                     "sector": "Consumer Discretionary", "ccy": "USD"},
+    "META":  {"yf": "META",  "name": "Meta Platforms",              "sector": "Technology",             "ccy": "USD"},
+    "TSLA":  {"yf": "TSLA",  "name": "Tesla",                      "sector": "Consumer Discretionary", "ccy": "USD"},
+    "SPCX":  {"yf": "SPCX",  "name": "SpaceX",                     "sector": "Industrials",            "ccy": "USD"},
+    "MU":    {"yf": "MU",    "name": "Micron Technology",           "sector": "Technology",             "ccy": "USD"},
+}
+
 MOVER_THRESHOLD = 5.0
 
 
@@ -89,12 +105,13 @@ def holding_period_months(purchase_date_str, as_of=None):
     return max(months, 0)
 
 
-def fetch_prices(debug=False):
+def fetch_prices_for(tickers_dict, is_portfolio=True, debug=False):
+    """Fetch prices for a dict of tickers. If is_portfolio=True, includes cost/holding fields."""
     today = datetime.now()
-    start = (today - timedelta(days=200)).strftime("%Y-%m-%d")  # 200 days for 6M lookback
+    start = (today - timedelta(days=200)).strftime("%Y-%m-%d")
     results = {}
 
-    for ticker, info in PORTFOLIO.items():
+    for ticker, info in tickers_dict.items():
         try:
             log(f"Fetching {ticker} ({info['yf']})...", debug)
             stock = yf.Ticker(info["yf"])
@@ -109,14 +126,16 @@ def fetch_prices(debug=False):
                 hist = stock.history(period="9mo")
 
             if hist.empty:
-                results[ticker] = {
+                entry = {
                     "name": info["name"], "sector": info["sector"],
                     "ccy": info["ccy"],
-                    "cost": info.get("cost"),
-                    "purchase_date": info.get("purchase_date"),
-                    "holding_period_months": holding_period_months(info.get("purchase_date")),
                     "error": "No price data available",
                 }
+                if is_portfolio:
+                    entry["cost"] = info.get("cost")
+                    entry["purchase_date"] = info.get("purchase_date")
+                    entry["holding_period_months"] = holding_period_months(info.get("purchase_date"))
+                results[ticker] = entry
                 continue
 
             current_price = float(hist["Close"].iloc[-1])
@@ -126,14 +145,16 @@ def fetch_prices(debug=False):
             if math.isnan(current_price):
                 valid_closes = hist["Close"].dropna()
                 if valid_closes.empty:
-                    results[ticker] = {
+                    entry = {
                         "name": info["name"], "sector": info["sector"],
                         "ccy": info["ccy"],
-                        "cost": info.get("cost"),
-                        "purchase_date": info.get("purchase_date"),
-                        "holding_period_months": holding_period_months(info.get("purchase_date")),
                         "error": "All close prices are NaN",
                     }
+                    if is_portfolio:
+                        entry["cost"] = info.get("cost")
+                        entry["purchase_date"] = info.get("purchase_date")
+                        entry["holding_period_months"] = holding_period_months(info.get("purchase_date"))
+                    results[ticker] = entry
                     continue
                 current_price = float(valid_closes.iloc[-1])
                 current_date = valid_closes.index[-1].strftime("%Y-%m-%d")
@@ -153,38 +174,45 @@ def fetch_prices(debug=False):
             chg_30d = round((current_price - price_30d) / price_30d * 100, 2) if price_30d else None
             chg_6m = round((current_price - price_6m) / price_6m * 100, 2) if price_6m else None
 
-            is_mover = (abs(chg_7d) >= MOVER_THRESHOLD if chg_7d is not None else False) or \
-                       (abs(chg_30d) >= MOVER_THRESHOLD if chg_30d is not None else False)
-
-            cost = info.get("cost")
-            chg_since_cost = round((current_price - cost) / cost * 100, 2) if cost else None
-
-            results[ticker] = {
+            entry = {
                 "name": info["name"], "sector": info["sector"], "ccy": info["ccy"],
-                "cost": cost,
-                "purchase_date": info.get("purchase_date"),
-                "holding_period_months": holding_period_months(info.get("purchase_date")),
-                "chg_since_cost_pct": chg_since_cost,
                 "current_price": round(current_price, 2), "current_date": current_date,
                 "price_delayed": price_delayed,
                 "price_7d": round(price_7d, 2) if price_7d else None, "date_7d": date_7d,
                 "price_30d": round(price_30d, 2) if price_30d else None, "date_30d": date_30d,
                 "price_6m": round(price_6m, 2) if price_6m else None, "date_6m": date_6m,
                 "chg_7d_pct": chg_7d, "chg_30d_pct": chg_30d, "chg_6m_pct": chg_6m,
-                "is_mover": is_mover,
             }
-            log(f"  {ticker}: {info['ccy']} {current_price} | cost:{cost} | hold:{holding_period_months(info.get('purchase_date'))}mo | 7d:{chg_7d}% | 30d:{chg_30d}% | 6m:{chg_6m}%", debug)
+
+            if is_portfolio:
+                cost = info.get("cost")
+                chg_since_cost = round((current_price - cost) / cost * 100, 2) if cost else None
+                is_mover = (abs(chg_7d) >= MOVER_THRESHOLD if chg_7d is not None else False) or \
+                           (abs(chg_30d) >= MOVER_THRESHOLD if chg_30d is not None else False)
+                entry["cost"] = cost
+                entry["purchase_date"] = info.get("purchase_date")
+                entry["holding_period_months"] = holding_period_months(info.get("purchase_date"))
+                entry["chg_since_cost_pct"] = chg_since_cost
+                entry["is_mover"] = is_mover
+
+            results[ticker] = entry
+            if is_portfolio:
+                log(f"  {ticker}: {info['ccy']} {current_price} | cost:{info.get('cost')} | hold:{holding_period_months(info.get('purchase_date'))}mo | 7d:{chg_7d}% | 30d:{chg_30d}% | 6m:{chg_6m}%", debug)
+            else:
+                log(f"  {ticker}: {info['ccy']} {current_price} | 7d:{chg_7d}% | 30d:{chg_30d}% | 6m:{chg_6m}%", debug)
 
         except Exception as e:
             log(f"  ERROR on {ticker}: {e}", debug)
-            results[ticker] = {
+            entry = {
                 "name": info["name"], "sector": info["sector"],
                 "ccy": info["ccy"],
-                "cost": info.get("cost"),
-                "purchase_date": info.get("purchase_date"),
-                "holding_period_months": holding_period_months(info.get("purchase_date")),
                 "error": str(e),
             }
+            if is_portfolio:
+                entry["cost"] = info.get("cost")
+                entry["purchase_date"] = info.get("purchase_date")
+                entry["holding_period_months"] = holding_period_months(info.get("purchase_date"))
+            results[ticker] = entry
 
     return results
 
@@ -214,7 +242,7 @@ def fetch_google_news(query, time_filter="when:7d", max_results=5):
 
 
 def fetch_news_all_tickers(prices, debug=False):
-    """Fetch 1W and 6M news for ALL tickers (not just movers)."""
+    """Fetch 1W and 6M news for ALL portfolio tickers (not watchlist)."""
     news_1w = {}
     news_6m = {}
 
@@ -247,11 +275,16 @@ def main():
     log(f"Run at: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
     log("=" * 50)
 
-    prices = fetch_prices(debug=args.debug)
+    # Portfolio positions (full data + news)
+    prices = fetch_prices_for(PORTFOLIO, is_portfolio=True, debug=args.debug)
+
+    # Watchlist (prices only, no cost/holding/news)
+    log("--- Fetching Watchlist prices ---")
+    watchlist_prices = fetch_prices_for(WATCHLIST, is_portfolio=False, debug=args.debug)
 
     news_1w, news_6m = {}, {}
     if not args.prices:
-        log(f"Fetching news for all {len(prices)} tickers...", args.debug)
+        log(f"Fetching news for {len(prices)} portfolio tickers...", args.debug)
         news_1w, news_6m = fetch_news_all_tickers(prices, debug=args.debug)
 
     output = {
@@ -259,15 +292,18 @@ def main():
         "date_display": datetime.now().strftime("%B %d, %Y"),
         "mover_threshold_pct": MOVER_THRESHOLD,
         "prices": prices,
+        "watchlist": watchlist_prices,
         "news_1w": news_1w,
         "news_6m": news_6m,
         "movers": [k for k, v in prices.items() if v.get("is_mover")],
         "delayed_prices": [k for k, v in prices.items() if v.get("price_delayed")],
         "errors": [k for k, v in prices.items() if "error" in v],
+        "watchlist_errors": [k for k, v in watchlist_prices.items() if "error" in v],
     }
 
     print(json.dumps(output, indent=2))
-    log(f"\nDone. {len(prices)} tickers, {len(news_1w)} with 1W news, {len(news_6m)} with 6M news.")
+    log(f"\nDone. {len(prices)} portfolio + {len(watchlist_prices)} watchlist tickers.")
+    log(f"  {len(news_1w)} with 1W news, {len(news_6m)} with 6M news.")
 
 
 if __name__ == "__main__":
