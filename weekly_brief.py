@@ -9,6 +9,15 @@ that egress policy, so price data for every ticker EXCEPT TAVHY is now
 fetched by Claude DIRECTLY from FiscalAI MCP during the Routine step, using
 the exact `fiscal_key` values below.
 
+WEIGHTS CHANGE (August 2026): Table 1 is no longer sorted by 1W price change.
+It is now sorted by CONSOLIDATED PORTFOLIO WEIGHT, descending, using the
+SLEEVES config below. A "sleeve" is either a single ticker (AUNA, CTT, ...)
+or a consolidated group (COAL = HCC+AMR+CNR, SAAS = PAR+TOST+WKL+INTU+ADBE,
+APPAREL = NKE+LULU+ONON). Edit weights ONLY in SLEEVES — everything else
+(sort order, the merged weight cell, the group colors) is derived from it.
+Within a group, tickers are still ordered by 1W % descending, so the
+short-term signal survives inside each block.
+
 DO NOT re-derive or guess fiscal_key values. Each one was hand-verified
 against the live FiscalAI API (company_profile + company_stock_prices):
   - AML must be "LSE_AML" (returns exchangeCode XLON, currency GBX)
@@ -19,6 +28,9 @@ against the live FiscalAI API (company_profile + company_stock_prices):
   - DGE must be "NYSE_DEO" — FiscalAI has NO LSE/GBP listing for Diageo,
     only the NYSE ADR (ticker DEO, USD). Cost basis was converted from GBP
     to the USD-equivalent (14.72) to match.
+  - BUR must be "NYSE_BUR" (Burford Capital Limited, USD, Financials /
+    Specialized Finance). Note "LSE_BUR" ALSO resolves but silently returns
+    the same NYSE listing — always pass NYSE_BUR explicitly.
 
 TAVHY (TAV Havalimanlari) is confirmed NOT present in FiscalAI's company
 universe (scanned all 11,963 companies / 12 pages, zero matches on ticker
@@ -32,8 +44,9 @@ prices rather than guessing.
 This script now only handles:
   1. TAVHY price fetch (yfinance, single ticker, best-effort)
   2. Google News RSS headlines (1W + 6M) for all portfolio tickers
-  3. Emits portfolio/watchlist metadata + fiscal_key map as JSON, so the
-     Routine has a single source of truth for which FiscalAI key to call
+  3. Emits portfolio/watchlist metadata + fiscal_key map + sleeve weights as
+     JSON, so the Routine has a single source of truth for which FiscalAI key
+     to call and in what order to render the table
 
 Usage:
     python weekly_brief.py              # Full run
@@ -59,6 +72,9 @@ import yfinance as yf
 #             None only for TAVHY (not covered by FiscalAI's API — see yf field).
 # cost: cost per share, in the currency given by "ccy"
 # purchase_date: "YYYY-MM-DD" — used to compute holding period in months
+#                None => Holding (mo) cell is left BLANK, never guessed
+#
+# NOTE: portfolio WEIGHTS are NOT set here — they live in SLEEVES below.
 # ──────────────────────────────────────────────────────────────
 PORTFOLIO = {
     "UHR":   {"fiscal_key": "XSWX_UHR",   "name": "Swatch Group",                 "sector": "Consumer Discretionary", "ccy": "CHF", "cost": 169.48, "purchase_date": "2025-12-03"},
@@ -81,11 +97,50 @@ PORTFOLIO = {
     "INTU":  {"fiscal_key": "NASDAQ_INTU","name": "Intuit Inc",                   "sector": "Technology",             "ccy": "USD", "cost": 288.01, "purchase_date": "2026-07-13"},
     "TOST":  {"fiscal_key": "NYSE_TOST",  "name": "Toast Inc",                    "sector": "Technology",             "ccy": "USD", "cost": 29.97,  "purchase_date": "2026-07-14"},
     "WKL":   {"fiscal_key": "AMS_WKL",    "name": "Wolters Kluwer N.V.",          "sector": "Technology",             "ccy": "EUR", "cost": 61.95,  "purchase_date": "2026-07-14"},
+    # TODO: set purchase_date for BUR. Left as None on purpose — the Routine
+    # renders a BLANK "Holding (mo)" cell rather than guessing a date.
+    "BUR":   {"fiscal_key": "NYSE_BUR",   "name": "Burford Capital",              "sector": "Financials",             "ccy": "USD", "cost": 4.28,   "purchase_date": None},
 }
 
+# ══════════════════════════════════════════════════════════════
+# PORTFOLIO WEIGHTS — ★ EDIT WEIGHTS HERE AND ONLY HERE ★
+# ══════════════════════════════════════════════════════════════
+# A "sleeve" is one row-block in Table 1: either a single ticker or a
+# consolidated group. `weight_pct` is the CONSOLIDATED weight of the whole
+# sleeve, expressed in percent (9.0 == 9%).
+#
+# Table 1 renders sleeves in DESCENDING weight_pct order. For a group, the
+# weight cell is rendered ONCE as a vertically-merged (rowspan) cell, centred,
+# filled with `color`. Tickers inside a group are ordered by 1W % descending.
+#
+# `color`: background of the merged weight cell. None => default styling
+#          (used for single-ticker sleeves). Keep group colors distinct from
+#          the yellow mover highlight (#FFF3B0) so both signals stay readable.
+#
+# To re-weight: change weight_pct. To move a ticker between sleeves: move its
+# symbol between `tickers` lists. Every PORTFOLIO ticker must appear in exactly
+# one sleeve — the validator below will flag it in the JSON if it doesn't.
+# ══════════════════════════════════════════════════════════════
+SLEEVES = [
+    {"id": "AUNA",    "label": "Auna",            "tickers": ["AUNA"],                              "weight_pct": 9.0, "color": None},
+    {"id": "COAL",    "label": "Coal",            "tickers": ["HCC", "AMR", "CNR"],                 "weight_pct": 6.5, "color": "#DDE3E9"},
+    {"id": "AVIO",    "label": "Avio",            "tickers": ["AVIO"],                              "weight_pct": 5.7, "color": None},
+    {"id": "SAAS",    "label": "SaaS",            "tickers": ["PAR", "TOST", "WKL", "INTU", "ADBE"],"weight_pct": 5.1, "color": "#D6EAE6"},
+    {"id": "CTT",     "label": "CTT",             "tickers": ["CTT"],                               "weight_pct": 5.0, "color": None},
+    {"id": "DGE",     "label": "Diageo",          "tickers": ["DGE"],                               "weight_pct": 4.4, "color": None},
+    {"id": "APPAREL", "label": "Sports Apparel",  "tickers": ["NKE", "LULU", "ONON"],               "weight_pct": 3.5, "color": "#E6DFF1"},
+    {"id": "LEN",     "label": "Lennar",          "tickers": ["LEN"],                               "weight_pct": 3.2, "color": None},
+    {"id": "UHR",     "label": "Swatch Group",    "tickers": ["UHR"],                               "weight_pct": 2.8, "color": None},
+    {"id": "TAVHY",   "label": "TAV Havalimanlari","tickers": ["TAVHY"],                            "weight_pct": 1.6, "color": None},
+    {"id": "JACK",    "label": "Jack in the Box", "tickers": ["JACK"],                              "weight_pct": 0.5, "color": None},
+    {"id": "AML",     "label": "Aston Martin",    "tickers": ["AML"],                               "weight_pct": 0.4, "color": None},
+    {"id": "BUR",     "label": "Burford Capital", "tickers": ["BUR"],                               "weight_pct": 0.1, "color": None},
+]
+
 # ──────────────────────────────────────────────────────────────
-# WATCHLIST — price-only tracking via FiscalAI (no cost, no news, no movers)
+# WATCHLIST — price-only tracking via FiscalAI (no cost, no weight, no news)
 # Mag 7 + SpaceX + Micron. All confirmed live on FiscalAI.
+# Watchlist table stays sorted by 1W DESCENDING.
 # ──────────────────────────────────────────────────────────────
 WATCHLIST = {
     "NVDA": {"fiscal_key": "NASDAQ_NVDA", "name": "NVIDIA",            "sector": "Technology",             "ccy": "USD"},
@@ -122,7 +177,8 @@ def closest_price(hist, target_date):
 
 
 def holding_period_months(purchase_date_str, as_of=None):
-    """Compute holding period in whole months between purchase_date and today (or as_of)."""
+    """Compute holding period in whole months between purchase_date and today (or as_of).
+    Returns None when purchase_date is missing — the Routine renders a blank cell."""
     if not purchase_date_str:
         return None
     try:
@@ -134,6 +190,86 @@ def holding_period_months(purchase_date_str, as_of=None):
     if as_of.day < purchase_date.day:
         months -= 1
     return max(months, 0)
+
+
+# ──────────────────────────────────────────────────────────────
+# SLEEVE / WEIGHT HELPERS
+# ──────────────────────────────────────────────────────────────
+def sleeves_sorted():
+    """Sleeves in DESCENDING weight order. Ties broken by declaration order in
+    SLEEVES so the output is always deterministic."""
+    return sorted(
+        enumerate(SLEEVES),
+        key=lambda pair: (-pair[1]["weight_pct"], pair[0]),
+    )
+
+
+def ticker_to_sleeve():
+    """Reverse index: ticker -> (sleeve dict, position within its sleeve)."""
+    index = {}
+    for sleeve in SLEEVES:
+        for pos, ticker in enumerate(sleeve["tickers"]):
+            index[ticker] = (sleeve, pos)
+    return index
+
+
+def validate_sleeves(debug=False):
+    """Every PORTFOLIO ticker must sit in exactly one sleeve, and every sleeve
+    ticker must exist in PORTFOLIO. Returns a dict the Routine can inspect
+    instead of silently dropping a position from the table."""
+    index = ticker_to_sleeve()
+
+    unassigned = sorted(t for t in PORTFOLIO if t not in index)
+
+    seen, duplicated = set(), []
+    for sleeve in SLEEVES:
+        for ticker in sleeve["tickers"]:
+            if ticker in seen:
+                duplicated.append(ticker)
+            seen.add(ticker)
+
+    unknown = sorted(t for t in seen if t not in PORTFOLIO)
+    total = round(sum(s["weight_pct"] for s in SLEEVES), 4)
+
+    report = {
+        "weights_total_pct": total,
+        "implied_cash_pct": round(100.0 - total, 4),
+        "unassigned_tickers": unassigned,
+        "duplicated_tickers": sorted(set(duplicated)),
+        "unknown_sleeve_tickers": unknown,
+        "ok": not (unassigned or duplicated or unknown),
+    }
+
+    if unassigned:
+        log(f"  WARNING: tickers with no sleeve/weight: {', '.join(unassigned)}", debug)
+    if duplicated:
+        log(f"  WARNING: tickers in more than one sleeve: {', '.join(sorted(set(duplicated)))}", debug)
+    if unknown:
+        log(f"  WARNING: sleeve tickers absent from PORTFOLIO: {', '.join(unknown)}", debug)
+    log(f"  Weights total {total}% (implied cash {report['implied_cash_pct']}%)", debug)
+
+    return report
+
+
+def build_sleeve_order():
+    """Ordered render plan for Table 1. The Routine walks this list top to
+    bottom; it only has to sort tickers WITHIN each group (by 1W desc)."""
+    plan = []
+    for _, sleeve in sleeves_sorted():
+        tickers = [t for t in sleeve["tickers"] if t in PORTFOLIO]
+        if not tickers:
+            continue
+        plan.append({
+            "sleeve_id": sleeve["id"],
+            "label": sleeve["label"],
+            "weight_pct": sleeve["weight_pct"],
+            "color": sleeve["color"],
+            "is_group": len(tickers) > 1,
+            "rowspan": len(tickers),
+            "tickers": tickers,
+            "sort_within": "1w_desc",
+        })
+    return plan
 
 
 def fetch_tavhy_price(debug=False):
@@ -243,10 +379,13 @@ def fetch_news_all_tickers(debug=False):
 
 
 def build_portfolio_meta():
-    """Metadata for every portfolio ticker: fiscal_key, cost, holding period, etc.
-    The Routine reads this directly instead of re-deriving anything."""
+    """Metadata for every portfolio ticker: fiscal_key, cost, holding period,
+    sleeve + weight. The Routine reads this directly instead of re-deriving
+    anything."""
+    index = ticker_to_sleeve()
     meta = {}
     for ticker, info in PORTFOLIO.items():
+        sleeve, pos = index.get(ticker, (None, None))
         meta[ticker] = {
             "name": info["name"],
             "sector": info["sector"],
@@ -255,6 +394,12 @@ def build_portfolio_meta():
             "purchase_date": info.get("purchase_date"),
             "holding_period_months": holding_period_months(info.get("purchase_date")),
             "fiscal_key": info.get("fiscal_key"),
+            "sleeve_id": sleeve["id"] if sleeve else None,
+            "sleeve_label": sleeve["label"] if sleeve else None,
+            "weight_pct": sleeve["weight_pct"] if sleeve else None,
+            "sleeve_color": sleeve["color"] if sleeve else None,
+            "sleeve_size": len(sleeve["tickers"]) if sleeve else None,
+            "is_group_member": (len(sleeve["tickers"]) > 1) if sleeve else None,
         }
     return meta
 
@@ -282,6 +427,9 @@ def main():
     log(f"Run at: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
     log("=" * 50)
 
+    log("Validating sleeve weights...", args.debug)
+    weights_check = validate_sleeves(debug=args.debug)
+
     tavhy_price = fetch_tavhy_price(debug=args.debug)
 
     news_1w, news_6m = {}, {}
@@ -299,8 +447,15 @@ def main():
             "using the exact fiscal_key given in portfolio_meta/watchlist_meta. Do NOT guess "
             "or re-derive a fiscal_key. TAVHY has no FiscalAI coverage — use the tavhy_price "
             "block below (fetched via yfinance TAVHL.IS, TRY) instead; if it contains an "
-            "'error' field, show '—' in the table for TAVHY rather than guessing a price."
+            "'error' field, show '—' in the table for TAVHY rather than guessing a price. "
+            "TABLE 1 ORDER: walk sleeve_order top to bottom (already sorted by consolidated "
+            "weight, descending). Do NOT re-sort Table 1 by 1W. Within a sleeve whose "
+            "is_group is true, order its tickers by 1W % DESCENDING and render the weight "
+            "once as a rowspan cell using the sleeve's rowspan and color. Table 2 "
+            "(watchlist) is still sorted by 1W descending."
         ),
+        "weights_check": weights_check,
+        "sleeve_order": build_sleeve_order(),
         "portfolio_meta": build_portfolio_meta(),
         "watchlist_meta": build_watchlist_meta(),
         "tavhy_price": tavhy_price,
@@ -310,6 +465,7 @@ def main():
 
     print(json.dumps(output, indent=2))
     log(f"\nDone. {len(PORTFOLIO)} portfolio + {len(WATCHLIST)} watchlist tickers (metadata only).")
+    log(f"  Sleeves: {len(SLEEVES)} | weights OK: {weights_check['ok']}")
     log(f"  TAVHY price: {'OK' if 'error' not in tavhy_price else 'ERROR — ' + tavhy_price['error']}")
     log(f"  {len(news_1w)} with 1W news, {len(news_6m)} with 6M news.")
 
