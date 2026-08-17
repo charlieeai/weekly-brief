@@ -79,11 +79,10 @@ import yfinance as yf
 PORTFOLIO = {
     "UHR":   {"fiscal_key": "XSWX_UHR",   "name": "Swatch Group",                 "sector": "Consumer Discretionary", "ccy": "CHF", "cost": 169.48, "purchase_date": "2025-12-03"},
     "AML":   {"fiscal_key": "LSE_AML",    "name": "Aston Martin Lagonda",         "sector": "Consumer Discretionary", "ccy": "GBX", "cost": 5.52,   "purchase_date": "2021-03-22"},
-    "NKE":   {"fiscal_key": "NYSE_NKE",   "name": "Nike",                         "sector": "Consumer Discretionary", "ccy": "USD", "cost": 45.06,  "purchase_date": "2026-04-24"},
+    "NKE":   {"fiscal_key": "NYSE_NKE",   "name": "Nike",                         "sector": "Consumer Discretionary", "ccy": "USD", "cost": 44.94,  "purchase_date": "2026-04-24"},
     "LULU":  {"fiscal_key": "NASDAQ_LULU","name": "Lululemon Athletica",          "sector": "Consumer Discretionary", "ccy": "USD", "cost": 133.65, "purchase_date": "2026-04-24"},
     "LEN":   {"fiscal_key": "NYSE_LEN",   "name": "Lennar",                       "sector": "Consumer Discretionary", "ccy": "USD", "cost": 90.19,  "purchase_date": "2026-04-14"},
     "AUNA":  {"fiscal_key": "NYSE_AUNA",  "name": "Auna S.A.",                    "sector": "Health Care",            "ccy": "USD", "cost": 4.93,   "purchase_date": "2025-12-01"},
-    "JACK":  {"fiscal_key": "NASDAQ_JACK","name": "Jack in the Box",              "sector": "Consumer Discretionary", "ccy": "USD", "cost": 18.81,  "purchase_date": "2025-12-01"},
     "AVIO":  {"fiscal_key": "MIL_AVIO",   "name": "Avio S.p.A.",                  "sector": "Industrials",            "ccy": "EUR", "cost": 36.05,  "purchase_date": "2026-03-11"},
     "HCC":   {"fiscal_key": "NYSE_HCC",   "name": "Warrior Met Coal",             "sector": "Energy",                 "ccy": "USD", "cost": 55.63,  "purchase_date": "2023-12-15"},
     "AMR":   {"fiscal_key": "NYSE_AMR",   "name": "Alpha Metallurgical Resources","sector": "Energy",                 "ccy": "USD", "cost": 269.37, "purchase_date": "2023-12-04"},
@@ -99,7 +98,7 @@ PORTFOLIO = {
     "WKL":   {"fiscal_key": "AMS_WKL",    "name": "Wolters Kluwer N.V.",          "sector": "Technology",             "ccy": "EUR", "cost": 61.95,  "purchase_date": "2026-07-14"},
     # TODO: set purchase_date for BUR. Left as None on purpose — the Routine
     # renders a BLANK "Holding (mo)" cell rather than guessing a date.
-    "BUR":   {"fiscal_key": "NYSE_BUR",   "name": "Burford Capital",              "sector": "Financials",             "ccy": "USD", "cost": 4.28,   "purchase_date": None},
+    "BUR":   {"fiscal_key": "NYSE_BUR",   "name": "Burford Capital",              "sector": "Financials",             "ccy": "USD", "cost": 4.25,   "purchase_date": "2026-08-11"},
 }
 
 # ══════════════════════════════════════════════════════════════
@@ -122,19 +121,18 @@ PORTFOLIO = {
 # one sleeve — the validator below will flag it in the JSON if it doesn't.
 # ══════════════════════════════════════════════════════════════
 SLEEVES = [
-    {"id": "AUNA",    "label": "Auna",            "tickers": ["AUNA"],                              "weight_pct": 9.0, "color": None},
-    {"id": "COAL",    "label": "Coal",            "tickers": ["HCC", "AMR", "CNR"],                 "weight_pct": 6.5, "color": "#DDE3E9"},
-    {"id": "AVIO",    "label": "Avio",            "tickers": ["AVIO"],                              "weight_pct": 5.7, "color": None},
-    {"id": "SAAS",    "label": "SaaS",            "tickers": ["PAR", "TOST", "WKL", "INTU", "ADBE"],"weight_pct": 5.1, "color": "#D6EAE6"},
+    {"id": "AUNA",    "label": "Auna",            "tickers": ["AUNA"],                              "weight_pct": 8.5, "color": None},
+    {"id": "COAL",    "label": "Coal",            "tickers": ["HCC", "AMR", "CNR"],                 "weight_pct": 6.4, "color": "#DDE3E9"},
+    {"id": "AVIO",    "label": "Avio",            "tickers": ["AVIO"],                              "weight_pct": 5.8, "color": None},
+    {"id": "SAAS",    "label": "SaaS",            "tickers": ["PAR", "TOST", "WKL", "INTU", "ADBE"],"weight_pct": 5.3, "color": "#D6EAE6"},
     {"id": "CTT",     "label": "CTT",             "tickers": ["CTT"],                               "weight_pct": 5.0, "color": None},
-    {"id": "DGE",     "label": "Diageo",          "tickers": ["DGE"],                               "weight_pct": 4.4, "color": None},
-    {"id": "APPAREL", "label": "Sports Apparel",  "tickers": ["NKE", "LULU", "ONON"],               "weight_pct": 3.5, "color": "#E6DFF1"},
+    {"id": "DGE",     "label": "Diageo",          "tickers": ["DGE"],                               "weight_pct": 4.3, "color": None},
+    {"id": "APPAREL", "label": "Sports Apparel",  "tickers": ["NKE", "LULU", "ONON"],               "weight_pct": 3.4, "color": "#E6DFF1"},
     {"id": "LEN",     "label": "Lennar",          "tickers": ["LEN"],                               "weight_pct": 3.2, "color": None},
-    {"id": "UHR",     "label": "Swatch Group",    "tickers": ["UHR"],                               "weight_pct": 2.8, "color": None},
-    {"id": "TAVHY",   "label": "TAV Havalimanlari","tickers": ["TAVHY"],                            "weight_pct": 1.6, "color": None},
-    {"id": "JACK",    "label": "Jack in the Box", "tickers": ["JACK"],                              "weight_pct": 0.5, "color": None},
+    {"id": "UHR",     "label": "Swatch Group",    "tickers": ["UHR"],                               "weight_pct": 2.7, "color": None},
+    {"id": "TAVHY",   "label": "TAV Havalimanlari","tickers": ["TAVHY"],                            "weight_pct": 1.7, "color": None},
     {"id": "AML",     "label": "Aston Martin",    "tickers": ["AML"],                               "weight_pct": 0.4, "color": None},
-    {"id": "BUR",     "label": "Burford Capital", "tickers": ["BUR"],                               "weight_pct": 0.1, "color": None},
+    {"id": "BUR",     "label": "Burford Capital", "tickers": ["BUR"],                               "weight_pct": 0.2, "color": None},
 ]
 
 # ──────────────────────────────────────────────────────────────
