@@ -121,13 +121,13 @@ PORTFOLIO = {
 # one sleeve — the validator below will flag it in the JSON if it doesn't.
 # ══════════════════════════════════════════════════════════════
 SLEEVES = [
-    {"id": "AUNA",    "label": "Auna",            "tickers": ["AUNA"],                              "weight_pct": 8.2, "color": None},
-    {"id": "COAL",    "label": "Coal",            "tickers": ["HCC", "AMR", "CNR"],                 "weight_pct": 7.6, "color": "#DDE3E9"},
-    {"id": "AVIO",    "label": "Avio",            "tickers": ["AVIO"],                              "weight_pct": 5.1, "color": None},
-    {"id": "SAAS",    "label": "SaaS",            "tickers": ["PAR", "TOST", "WKL", "INTU", "ADBE"],"weight_pct": 5.3, "color": "#D6EAE6"},
-    {"id": "CTT",     "label": "CTT",             "tickers": ["CTT"],                               "weight_pct": 5.3, "color": None},
-    {"id": "DGE",     "label": "Diageo",          "tickers": ["DGE"],                               "weight_pct": 4.2, "color": None},
-    {"id": "APPAREL", "label": "Sports Apparel",  "tickers": ["NKE", "LULU", "ONON"],               "weight_pct": 3.6, "color": "#E6DFF1"},
+    {"id": "AUNA",    "label": "Auna",            "tickers": ["AUNA"],                              "weight_pct": 8.4, "color": None},
+    {"id": "COAL",    "label": "Coal",            "tickers": ["HCC", "AMR", "CNR"],                 "weight_pct": 7.4, "color": "#DDE3E9"},
+    {"id": "AVIO",    "label": "Avio",            "tickers": ["AVIO"],                              "weight_pct": 5.0, "color": None},
+    {"id": "SAAS",    "label": "SaaS",            "tickers": ["PAR", "TOST", "WKL", "INTU", "ADBE"],"weight_pct": 5.1, "color": "#D6EAE6"},
+    {"id": "CTT",     "label": "CTT",             "tickers": ["CTT"],                               "weight_pct": 5.4, "color": None},
+    {"id": "DGE",     "label": "Diageo",          "tickers": ["DGE"],                               "weight_pct": 4.0, "color": None},
+    {"id": "APPAREL", "label": "Sports Apparel",  "tickers": ["NKE", "LULU", "ONON"],               "weight_pct": 3.3, "color": "#E6DFF1"},
     {"id": "LEN",     "label": "Lennar",          "tickers": ["LEN"],                               "weight_pct": 3.1, "color": None},
     {"id": "UHR",     "label": "Swatch Group",    "tickers": ["UHR"],                               "weight_pct": 2.7, "color": None},
     {"id": "TAVHY",   "label": "TAV Havalimanlari","tickers": ["TAVHY"],                            "weight_pct": 2.3, "color": None},
